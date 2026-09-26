@@ -15,6 +15,7 @@ import urllib.request
 ssl._create_default_https_context = ssl._create_unverified_context
 
 import numpy as np
+import mysql.connector
 import json
 import hashlib
 import glob
@@ -71,14 +72,25 @@ UMBRAL_MEL = 0.45  # Umbral para detectar Melanoma
 UMBRAL_CONFIANZA = 0.35  # Filtro de seguridad (Out-of-Distribution)
 
 
-# --- 2. AUTENTICACIÓN ---
-def cargar_usuarios():
-    if not os.path.exists(ARCHIVO_USUARIOS): return {}
-    with open(ARCHIVO_USUARIOS, 'r') as f: return json.load(f)
-
-
-def guardar_usuarios(usuarios):
-    with open(ARCHIVO_USUARIOS, 'w') as f: json.dump(usuarios, f)
+# --- 2. AUTENTICACIÓN (NUBE AUTOMÁTICA) ---
+def conectar_bd():
+    conexion = mysql.connector.connect(
+        host=st.secrets["mysql"]["host"],
+        port=st.secrets["mysql"]["port"],
+        database=st.secrets["mysql"]["database"],
+        user=st.secrets["mysql"]["user"],
+        password=st.secrets["mysql"]["password"]
+    )
+    # Crear la tabla automáticamente si es un servidor nuevo
+    cursor = conexion.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS medicos (
+            id_medico VARCHAR(50) PRIMARY KEY,
+            password_hash VARCHAR(255) NOT NULL
+        )
+    """)
+    conexion.commit()
+    return conexion
 
 
 def encriptar(password):
@@ -90,19 +102,29 @@ if 'autenticado' not in st.session_state:
     st.session_state['medico'] = ''
 
 if not st.session_state['autenticado']:
-    st.title(" Portal médico - diagnóstico dermatológico")
+    st.title("Portal médico - diagnóstico dermatológico")
     t1, t2 = st.tabs(["Ingresar", "Registrar médico"])
-    db = cargar_usuarios()
+
     with t1:
         with st.form("login"):
             usr = st.text_input("ID médico")
             pwd = st.text_input("Contraseña", type="password")
             if st.form_submit_button("Ingresar", type="primary"):
-                if usr in db and db[usr] == encriptar(pwd):
-                    st.session_state['autenticado'], st.session_state['medico'] = True, usr
-                    st.rerun()
-                else:
-                    st.error("Credenciales inválidas.")
+                try:
+                    conexion = conectar_bd()
+                    cursor = conexion.cursor()
+                    cursor.execute("SELECT password_hash FROM medicos WHERE id_medico = %s", (usr,))
+                    resultado = cursor.fetchone()
+                    conexion.close()
+
+                    if resultado and resultado[0] == encriptar(pwd):
+                        st.session_state['autenticado'], st.session_state['medico'] = True, usr
+                        st.rerun()
+                    else:
+                        st.error("Credenciales inválidas o usuario no registrado.")
+                except Exception as e:
+                    st.error(f"Error de conexión a la nube: {e}")
+
     with t2:
         with st.form("registro"):
             n_usr = st.text_input("Nuevo ID médico")
@@ -111,9 +133,20 @@ if not st.session_state['autenticado']:
                 if n_usr.strip() == "" or n_pwd.strip() == "":
                     st.error("Los campos no pueden estar vacíos.")
                 else:
-                    db[n_usr] = encriptar(n_pwd)
-                    guardar_usuarios(db)
-                    st.success("Médico registrado. Por favor inicie sesión en la pestaña contigua.")
+                    try:
+                        conexion = conectar_bd()
+                        cursor = conexion.cursor()
+                        cursor.execute(
+                            "INSERT INTO medicos (id_medico, password_hash) VALUES (%s, %s)",
+                            (n_usr.strip(), encriptar(n_pwd))
+                        )
+                        conexion.commit()
+                        conexion.close()
+                        st.success("Médico registrado exitosamente en la nube. Ya puede iniciar sesión.")
+                    except mysql.connector.IntegrityError:
+                        st.error("Error: Ese ID de médico ya existe. Elija otro.")
+                    except Exception as e:
+                        st.error(f"Error al registrar: {e}")
     st.stop()
 
 
