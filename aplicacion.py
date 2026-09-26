@@ -613,7 +613,7 @@ with tab_historial:
                         st.rerun()
 
                 with col_btn2:
-                    if st.button("🗑️ Eliminar expediente", type="primary"):
+                    if st.button("Eliminar expediente", type="primary"):
                         ruta_json = datos.get('ruta_json_fisica')
                         ruta_img = l.get('ruta_imagen')
                         try:
