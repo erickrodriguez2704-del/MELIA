@@ -605,9 +605,24 @@ with tab_historial:
                     st.altair_chart(barras.properties(height=150), use_container_width=True)
 
                 st.divider()
-                if st.button("← Regresar al listado general"):
-                    st.session_state['expediente_activo'] = None
-                    st.rerun()
+
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if st.button("← Regresar al listado general"):
+                        st.session_state['expediente_activo'] = None
+                        st.rerun()
+
+                with col_btn2:
+                    if st.button("🗑️ Eliminar expediente", type="primary"):
+                        ruta_json = datos.get('ruta_json_fisica')
+                        ruta_img = l.get('ruta_imagen')
+                        try:
+                            if ruta_json and os.path.exists(ruta_json): os.remove(ruta_json)
+                            if ruta_img and os.path.exists(ruta_img): os.remove(ruta_img)
+                            st.session_state['expediente_activo'] = None
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error al eliminar los archivos: {e}")
 
             with col_img:
                 ruta_img = l.get('ruta_imagen')
