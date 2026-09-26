@@ -57,7 +57,7 @@ ARCHIVO_USUARIOS = os.path.join(DIRECTORIO_BASE, 'db_medicos.json')
 CARPETA_PACIENTES = os.path.join(DIRECTORIO_BASE, 'db_pacientes')
 os.makedirs(CARPETA_PACIENTES, exist_ok=True)
 
-st.set_page_config(page_title="Triaje dermatológico híbrido", layout="wide")
+st.set_page_config(page_title="MELIA", layout="wide")
 
 diccionario_resultados = {
     'MEL': 'ALERTA: Alta sospecha de melanoma',
