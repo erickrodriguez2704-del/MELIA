@@ -347,7 +347,7 @@ if st.sidebar.button("Cerrar sesión"):
     st.session_state['autenticado'] = False
     st.rerun()
 
-st.title(" Sistema de triaje dermatológico")
+st.title("MELIA")
 
 tab_analisis, tab_historial, tab_evolucion = st.tabs(
     [" Nuevo análisis", " Historial de pacientes", " Evolución clínica"])
@@ -434,7 +434,7 @@ with tab_analisis:
             st.markdown("---")
 
             # --- BOTÓN DE ANÁLISIS E INFERENCIA ---
-            if st.button("Analizar y Guardar Expediente", type="primary"):
+            if st.button("Analizar y guardar expediente", type="primary"):
                 if not nombre or loc_ui == "":
                     st.error(" ALERTA: Complete nombre y localización.")
                 else:
@@ -525,7 +525,7 @@ with tab_analisis:
                                 json.dump(expediente, f, indent=4)
 
                             st.success(" Análisis híbrido completado.")
-                            st.markdown(f"### Resultado del triaje: **{diagnostico_final}**")
+                            st.markdown(f"### Resultado del análisis: **{diagnostico_final}**")
 
                             with st.expander("Ver desglose de probabilidades visuales", expanded=True):
                                 df_probs = pd.DataFrame({
@@ -578,7 +578,7 @@ with tab_historial:
             col_info, col_img = st.columns([1, 1])
 
             with col_info:
-                st.markdown("#### Datos Demográficos y Clínicos")
+                st.markdown("#### Datos clínicos")
                 st.markdown(f"""
                 - **Fecha de estudio:** {datos.get('fecha', 'Sin fecha')}
                 - **Edad:** {p.get('edad', 'N/A')} años
@@ -587,7 +587,7 @@ with tab_historial:
                 - **Localización anatómica:** {l.get('localizacion', 'N/A')}
                 """)
                 st.divider()
-                st.markdown(f"#### Diagnóstico Final: **{l.get('diagnostico_completo', 'N/A')}**")
+                st.markdown(f"#### Diagnóstico final: **{l.get('diagnostico_completo', 'N/A')}**")
 
                 # Desplegar gráfica si existe en el JSON
                 probs = l.get('probabilidades')
@@ -623,7 +623,7 @@ with tab_historial:
                     st.markdown(
                         f" **{datos.get('fecha', '')}** |  **{datos.get('paciente', {}).get('nombre', 'Desconocido')}** - {datos.get('lesion', {}).get('diagnostico_completo', '')}")
                 with col_boton:
-                    if st.button("Abrir Expediente", key=datos['ruta_json_fisica']):
+                    if st.button("Abrir expediente", key=datos['ruta_json_fisica']):
                         st.session_state['expediente_activo'] = datos
                         st.rerun()
                 st.divider()
