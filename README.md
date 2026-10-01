@@ -1,6 +1,6 @@
-Dermatological AI System (MELIA)
+### Dermatological AI System (MELIA)
 
-Overview
+## Overview
 
 This repository contains the core application and backend logic for an automated dermatological triage system. The project leverages Deep Learning and Computer Vision to analyze skin lesions, combining image processing with clinical metadata for a multimodal diagnostic approach.
 
@@ -9,7 +9,7 @@ This system was built to demonstrate proficiency in Machine Learning pipeline in
 Privacy note: For security and compliance with data privacy standards, all sensitive databases (db_pacientes, db_medicos) and proprietary patient metadata have been strictly excluded from this public repository.
 
 
-Key features
+## Key features
 
 Multimodal Machine Learning: Integrates image classification and clinical data processing using advanced architectures (ResNet50, Vision Transformers).
 
@@ -37,19 +37,17 @@ Secure data handling: Modular architecture designed to connect with external, se
 
 To run this project locally, clone the repository and install the dependencies:
 
-### Clone the repository
-'''bash
+# Clone the repository
 git clone https://github.com/erickrodriguez2704-del/MELIA.git
 
 # Navigate to the directory
-'''bash
 cd MELIA
 
 # Install required dependencies
 pip install -r requirements.txt
 
 
-Usage
+## Usage
 
 Start the main application dashboard:
 
@@ -60,11 +58,11 @@ To run the standalone QR server module:
 python servidor_qr.py
 
 
-Model architecture note
+## Model architecture note
 
 The system was designed to utilize heavy weights files (e.g., resnet50_multimodal_final.keras and vit_multimodal_v2.h5). While the architecture and loading scripts are present in the code, the actual weight files are managed via Git LFS or kept locally due to size constraints.
 
 
-License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
