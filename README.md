@@ -20,7 +20,7 @@ Backend QR integration (servidor_qr.py): Dedicated backend module to handle QR c
 Secure data handling: Modular architecture designed to connect with external, secure MySQL databases rather than relying on local, unsecured files.
 
 
-Tech stack
+## Tech stack
 
 Language: Python 3.x
 
@@ -33,7 +33,7 @@ Backend/API: Flask / Requests (via servidor_qr.py)
 Data processing: Pandas, NumPy
 
 
-Installation & setup
+## Installation & setup
 
 To run this project locally, clone the repository and install the dependencies:
 
