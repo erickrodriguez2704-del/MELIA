@@ -1,4 +1,4 @@
-### Dermatological AI System (MELIA)
+# Dermatological AI System (MELIA)
 
 ## Overview
 
@@ -37,13 +37,13 @@ Secure data handling: Modular architecture designed to connect with external, se
 
 To run this project locally, clone the repository and install the dependencies:
 
-## Clone the repository
+### Clone the repository
 git clone https://github.com/erickrodriguez2704-del/MELIA.git
 
-## Navigate to the directory
+### Navigate to the directory
 cd MELIA
 
-## Install required dependencies
+### Install required dependencies
 pip install -r requirements.txt
 
 
