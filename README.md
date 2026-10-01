@@ -22,25 +22,27 @@ Secure data handling: Modular architecture designed to connect with external, se
 
 ## Tech stack
 
-Language: Python 3.x
+**Language:** Python 3.x
 
-Machine Learning / AI: TensorFlow / Keras (ResNet50, ViT)
+**Machine Learning / AI:** TensorFlow / Keras (ResNet50, ViT)
 
-Frontend/UI: Streamlit (via aplicacion.py)
+**Frontend/UI:** Streamlit (via aplicacion.py)
 
-Backend/API: Flask / Requests (via servidor_qr.py)
+**Backend/API:** Flask / Requests (via servidor_qr.py)
 
-Data processing: Pandas, NumPy
+**Data processing:** Pandas, NumPy
 
 
 ## Installation & setup
 
 To run this project locally, clone the repository and install the dependencies:
 
-# Clone the repository
+### Clone the repository
+'''bash
 git clone https://github.com/erickrodriguez2704-del/MELIA.git
 
 # Navigate to the directory
+'''bash
 cd MELIA
 
 # Install required dependencies
