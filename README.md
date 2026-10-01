@@ -8,6 +8,7 @@ This system was built to demonstrate proficiency in Machine Learning pipeline in
 
 Privacy note: For security and compliance with data privacy standards, all sensitive databases (db_pacientes, db_medicos) and proprietary patient metadata have been strictly excluded from this public repository.
 
+
 Key features
 
 Multimodal Machine Learning: Integrates image classification and clinical data processing using advanced architectures (ResNet50, Vision Transformers).
@@ -17,6 +18,7 @@ Interactive dashboard (aplicacion.py): User-friendly interface built for medical
 Backend QR integration (servidor_qr.py): Dedicated backend module to handle QR code generation and reading for efficient patient/doctor data retrieval.
 
 Secure data handling: Modular architecture designed to connect with external, secure MySQL databases rather than relying on local, unsecured files.
+
 
 Tech stack
 
@@ -30,7 +32,8 @@ Backend/API: Flask / Requests (via servidor_qr.py)
 
 Data processing: Pandas, NumPy
 
-⚙️ Installation & setup
+
+Installation & setup
 
 To run this project locally, clone the repository and install the dependencies:
 
@@ -50,7 +53,6 @@ Start the main application dashboard:
 
 streamlit run aplicacion.py
 
-
 To run the standalone QR server module:
 
 python servidor_qr.py
@@ -59,6 +61,7 @@ python servidor_qr.py
 Model architecture note
 
 The system was designed to utilize heavy weights files (e.g., resnet50_multimodal_final.keras and vit_multimodal_v2.h5). While the architecture and loading scripts are present in the code, the actual weight files are managed via Git LFS or kept locally due to size constraints.
+
 
 License
 
