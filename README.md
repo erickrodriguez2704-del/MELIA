@@ -1,4 +1,4 @@
-# Dermatological AI System (MELIA)
+# Dermatological AI system (MELIA)
 
 ## Overview
 
@@ -38,24 +38,30 @@ Secure data handling: Modular architecture designed to connect with external, se
 To run this project locally, clone the repository and install the dependencies:
 
 ### Clone the repository
+```bash
 git clone https://github.com/erickrodriguez2704-del/MELIA.git
+```
 
 ### Navigate to the directory
+```bash
 cd MELIA
+```
 
 ### Install required dependencies
+```bash
 pip install -r requirements.txt
-
+```
 
 ## Usage
 
 Start the main application dashboard:
-
+```bash
 streamlit run aplicacion.py
-
+```
 To run the standalone QR server module:
-
+```bash
 python servidor_qr.py
+```
 
 
 ## Model architecture note
