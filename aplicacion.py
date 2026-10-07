@@ -302,29 +302,27 @@ def calcular_area_lesion(ruta_imagen):
     return area, mascara_final, img_rgb
 
 
-def eliminar_vello_avanzado(imagen_pil):
+def eliminar_vello_preciso(imagen_pil):
     img_cv = cv2.cvtColor(np.array(imagen_pil), cv2.COLOR_RGB2BGR)
     gris = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
 
-    # 1. Aplicar CLAHE solo a la capa en blanco y negro para exagerar el contraste
-    # de los vellos finos contra la piel (esto no afecta la foto final a color).
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-    gris_contrastado = clahe.apply(gris)
+    # 1. Detección base de estructuras oscuras (vellos)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (17, 17))
+    blackhat = cv2.morphologyEx(gris, cv2.MORPH_BLACKHAT, kernel)
 
-    # 2. Operación BlackHat sobre la imagen altamente contrastada
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
-    blackhat = cv2.morphologyEx(gris_contrastado, cv2.MORPH_BLACKHAT, kernel)
+    # 2. LA SOLUCIÓN AL PIXELADO: Aplicar un Blur Gaussiano a la detección.
+    # Esto elimina el "ruido" de los poros y la textura natural de la piel.
+    # La máscara resultante solo conservará las líneas largas y continuas (el vello puro).
+    blackhat_blur = cv2.GaussianBlur(blackhat, (3, 3), 0)
 
-    # 3. Umbralización para extraer la máscara. Al haber contrastado antes,
-    # un umbral de 15 atrapará casi todo el vello fino.
-    _, mascara = cv2.threshold(blackhat, 15, 255, cv2.THRESH_BINARY)
+    # 3. Umbralización sobre la detección limpia
+    _, mascara = cv2.threshold(blackhat_blur, 10, 255, cv2.THRESH_BINARY)
 
-    # 4. Dilatación suave para que la máscara cubra los bordes del vello
-    kernel_dilatacion = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    mascara = cv2.dilate(mascara, kernel_dilatacion, iterations=1)
-
-    # 5. Inpainting: Rellena los huecos usando la imagen original intacta y la nueva máscara precisa
-    img_restaurada = cv2.inpaint(img_cv, mascara, 3, cv2.INPAINT_TELEA)
+    # 4. Reconstrucción Navier-Stokes (INPAINT_NS) con radio 1.
+    # A diferencia de Telea (que promedia y difumina), NS usa dinámica de fluidos
+    # para continuar matemáticamente la textura de la piel cortada por el vello.
+    # El radio de 1 asegura que no se altere ni un píxel más de lo estrictamente necesario.
+    img_restaurada = cv2.inpaint(img_cv, mascara, 1, cv2.INPAINT_NS)
 
     return Image.fromarray(cv2.cvtColor(img_restaurada, cv2.COLOR_BGR2RGB))
 
@@ -423,8 +421,8 @@ with tab_analisis:
                 img_procesada = limpiar_captura(img_procesada)
 
             if aplicar_depilacion:
-                img_para_medico = eliminar_vello_avanzado(img_para_medico)
-                img_procesada = eliminar_vello_avanzado(img_procesada)
+                img_para_medico = eliminar_vello_preciso(img_para_medico)
+                img_procesada = eliminar_vello_preciso(img_procesada)
 
             if filtro_avanzado == "Contraste local (CLAHE)":
                 img_para_medico = aplicar_clahe(img_para_medico)
