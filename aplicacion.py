@@ -413,8 +413,8 @@ with tab_analisis:
                 img_procesada = limpiar_captura(img_procesada)
 
             if aplicar_depilacion:
-                img_para_medico = eliminar_vello(img_para_medico)
-                img_procesada = eliminar_vello(img_procesada)
+                img_para_medico = eliminar_vello_suave(img_para_medico)
+                img_procesada = eliminar_vello_suave(img_procesada)
 
             if filtro_avanzado == "Contraste local (CLAHE)":
                 img_para_medico = aplicar_clahe(img_para_medico)
