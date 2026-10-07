@@ -306,16 +306,16 @@ def eliminar_vello_suave(imagen_pil):
     img_cv = cv2.cvtColor(np.array(imagen_pil), cv2.COLOR_RGB2BGR)
     gris = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
 
-    # 1. Reducir el Kernel de (17, 17) a (9, 9) para afectar solo vellos muy finos y no dañar tejido
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+    # 1. Aumentamos el kernel a (15, 15) para atrapar el grosor normal del vello
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
     bottom_hat = cv2.morphologyEx(gris, cv2.MORPH_BLACKHAT, kernel)
 
-    # 2. Umbral más estricto (de 15 a 25) para no confundir pecas oscuras con vello
-    _, mascara = cv2.threshold(bottom_hat, 25, 255, cv2.THRESH_BINARY)
+    # 2. Bajamos el umbral a 10 para detectar vellos que no son totalmente negros
+    _, mascara = cv2.threshold(bottom_hat, 10, 255, cv2.THRESH_BINARY)
 
-    # 3. Reducir el radio de inpainting de 5 a 2. Esto evita el efecto de "mancha borrosa"
-    # y preserva mejor la textura microscópica original de la lesión
-    img_restaurada = cv2.inpaint(img_cv, mascara, 2, cv2.INPAINT_TELEA)
+    # 3. Mantenemos el difuminado (inpaint) en 3 para no destruir la textura
+    img_restaurada = cv2.inpaint(img_cv, mascara, 3, cv2.INPAINT_TELEA)
+
     return Image.fromarray(cv2.cvtColor(img_restaurada, cv2.COLOR_BGR2RGB))
 
 
