@@ -302,25 +302,20 @@ def calcular_area_lesion(ruta_imagen):
     return area, mascara_final, img_rgb
 
 
-def eliminar_vello(imagen_pil):
+def eliminar_vello_suave(imagen_pil):
     img_cv = cv2.cvtColor(np.array(imagen_pil), cv2.COLOR_RGB2BGR)
     gris = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
 
-    # 1. Kernel elíptico más grande para abarcar vellos gruesos
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (17, 17))
+    # 1. Reducir el Kernel de (17, 17) a (9, 9) para afectar solo vellos muy finos y no dañar tejido
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
     bottom_hat = cv2.morphologyEx(gris, cv2.MORPH_BLACKHAT, kernel)
 
-    # 2. Desenfoque para conectar los trozos de vello separados
-    bottom_hat_blur = cv2.GaussianBlur(bottom_hat, (3, 3), 0)
+    # 2. Umbral más estricto (de 15 a 25) para no confundir pecas oscuras con vello
+    _, mascara = cv2.threshold(bottom_hat, 25, 255, cv2.THRESH_BINARY)
 
-    # 3. Umbral adaptado
-    _, mascara = cv2.threshold(bottom_hat_blur, 15, 255, cv2.THRESH_BINARY)
-
-    # 4. Engrosar la máscara para que la restauración cubra las sombras del vello
-    mascara = cv2.dilate(mascara, np.ones((3, 3), np.uint8), iterations=1)
-
-    # 5. Restauración Telea con mayor radio de acción
-    img_restaurada = cv2.inpaint(img_cv, mascara, 5, cv2.INPAINT_TELEA)
+    # 3. Reducir el radio de inpainting de 5 a 2. Esto evita el efecto de "mancha borrosa"
+    # y preserva mejor la textura microscópica original de la lesión
+    img_restaurada = cv2.inpaint(img_cv, mascara, 2, cv2.INPAINT_TELEA)
     return Image.fromarray(cv2.cvtColor(img_restaurada, cv2.COLOR_BGR2RGB))
 
 
@@ -646,16 +641,38 @@ with tab_historial:
 with tab_evolucion:
     st.subheader("Análisis longitudinal de evolución")
 
-    # 1. Filtrar solo pacientes del médico actual
+    # Inicializar memoria de sesión para guardar el orden de selección visual
+    if 'evol_paciente_actual' not in st.session_state:
+        st.session_state['evol_paciente_actual'] = None
+    if 'evol_fechas_seleccionadas' not in st.session_state:
+        st.session_state['evol_fechas_seleccionadas'] = []
+
+    # 1. Filtrar expedientes por médico
     archivos_todos = glob.glob(os.path.join(CARPETA_PACIENTES, "*.json"))
-    expedientes_medico = [json.load(open(a)) for a in archivos_todos if
-                          json.load(open(a)).get('medico') == st.session_state['medico']]
+    expedientes_medico = []
+    for a in archivos_todos:
+        try:
+            d = json.load(open(a))
+            if d.get('medico') == st.session_state['medico']:
+                expedientes_medico.append(d)
+        except:
+            pass
+
     pacientes_nombres = {e['paciente']['nombre'] for e in expedientes_medico if 'paciente' in e}
 
     if not pacientes_nombres:
         st.info("No hay pacientes registrados con su perfil para analizar.")
     else:
         paciente_seleccionado = st.selectbox("Seleccione paciente:", sorted(list(pacientes_nombres)))
+
+        # Limpiar la selección automáticamente si cambias de paciente
+        if st.session_state['evol_paciente_actual'] != paciente_seleccionado:
+            st.session_state['evol_paciente_actual'] = paciente_seleccionado
+            st.session_state['evol_fechas_seleccionadas'] = []
+
+        st.markdown(f"### Evaluando expediente de: **{paciente_seleccionado}**")
+        st.divider()
+
         visitas = sorted(
             [e for e in expedientes_medico if e.get('paciente', {}).get('nombre') == paciente_seleccionado],
             key=lambda x: x.get('fecha', ''))
@@ -663,29 +680,61 @@ with tab_evolucion:
         if len(visitas) < 2:
             st.warning("Se requieren al menos 2 estudios del mismo paciente para evaluar crecimiento.")
         else:
-            fechas_disponibles = [v.get('fecha') for v in visitas]
-            st.markdown("Seleccione las fechas que desea incluir en el seguimiento de este paciente:")
+            st.markdown(
+                "**1. Galería clínica:** Haga clic en 'Agregar' debajo de las fotos que desea analizar. **El orden en el que haga clic determinará la dirección del análisis** (Primer clic = Foto base, Último clic = Foto actual).")
 
-            # Selector múltiple (por defecto toma la más vieja y la más nueva)
-            fechas_seleccionadas = st.multiselect("Estudios a comparar:", fechas_disponibles,
-                                                  default=[fechas_disponibles[0], fechas_disponibles[-1]])
+            # --- GALERÍA VISUAL EN CUADRÍCULA ---
+            columnas_galeria = st.columns(3)  # Muestra 3 fotos por fila
+            for idx, visita in enumerate(visitas):
+                fecha = visita['fecha']
+                ruta_img = visita.get('lesion', {}).get('ruta_imagen')
+
+                with columnas_galeria[idx % 3]:
+                    if ruta_img and os.path.exists(ruta_img):
+                        img_visual = Image.open(ruta_img)
+                        st.image(img_visual, caption=fecha, use_column_width=True)
+                    else:
+                        st.warning("Imagen no encontrada")
+
+                    # Botones dinámicos de selección
+                    if fecha not in st.session_state['evol_fechas_seleccionadas']:
+                        if st.button("Agregar a análisis", key=f"add_{fecha}"):
+                            st.session_state['evol_fechas_seleccionadas'].append(fecha)
+                            st.rerun()
+                    else:
+                        if st.button("Quitar de análisis", key=f"rem_{fecha}", type="primary"):
+                            st.session_state['evol_fechas_seleccionadas'].remove(fecha)
+                            st.rerun()
+
+            st.divider()
+
+            # --- LÓGICA DE SECUENCIA Y ANÁLISIS ---
+            fechas_seleccionadas = st.session_state['evol_fechas_seleccionadas']
+
+            if len(fechas_seleccionadas) > 0:
+                st.markdown("### 2. Secuencia seleccionada:")
+                orden_visual = " ➔ ".join([f.split(" ")[0] for f in fechas_seleccionadas])
+                st.info(f"**Orden:** {orden_visual}")
+
+                if st.button(" Limpiar selección visual"):
+                    st.session_state['evol_fechas_seleccionadas'] = []
+                    st.rerun()
 
             if len(fechas_seleccionadas) >= 2:
-                fechas_seleccionadas.sort()
                 fecha_base = fechas_seleccionadas[0]
                 fecha_actual = fechas_seleccionadas[-1]
 
-                # Lógica Dermatológica: Revisión de tiempo
+                # Revisión de protocolo dermatológico de 30 días
                 d_base = datetime.strptime(fecha_base, "%Y-%m-%d %H:%M:%S")
                 d_actual = datetime.strptime(fecha_actual, "%Y-%m-%d %H:%M:%S")
-                dias_transcurridos = (d_actual - d_base).days
+                dias_transcurridos = abs((d_actual - d_base).days)
 
                 bloqueo_clinico = False
                 forzar_analisis = False
 
                 if dias_transcurridos < 30:
                     st.warning(
-                        " **Protocolo dermatológico:** El tiempo transcurrido entre el estudio inicial y el final es muy corto (menor a 1 mes). Los cambios estructurales significativos en tejido pigmentado requieren un periodo de observación estándar de 3 a 6 meses.")
+                        "️ **Protocolo dermatológico:** El tiempo transcurrido entre el estudio base y el actual es muy corto (menor a 1 mes). Los cambios en tejido pigmentado requieren observación de 3 a 6 meses.")
                     bloqueo_clinico = True
                     forzar_analisis = st.checkbox("Forzar análisis computacional (omisión clínica)")
 
@@ -694,41 +743,39 @@ with tab_evolucion:
                         areas = []
                         fechas_graf = []
 
-                        # Extraer áreas de todas las selecciones
                         for fecha in fechas_seleccionadas:
                             exp = next(v for v in visitas if v['fecha'] == fecha)
                             ruta = exp.get('lesion', {}).get('ruta_imagen')
                             area, _, _ = calcular_area_lesion(ruta)
                             areas.append(area)
-                            fechas_graf.append(fecha.split(" ")[0])  # Solo tomar el día para la gráfica
+                            fechas_graf.append(fecha.split(" ")[0])
 
                         area_inicial = areas[0]
                         area_final = areas[-1]
 
                         if area_inicial == 0 or area_final == 0:
-                            st.error("Error de segmentación en las imágenes seleccionadas.")
+                            st.error("Error de segmentación geométrica en las imágenes seleccionadas.")
                         else:
                             variacion_total = ((area_final - area_inicial) / area_inicial) * 100
 
-                            # Mostrar comparativa visual de los extremos
-                            st.markdown("### Comparativa de extremos")
+                            st.markdown("### 3. Comparativa de extremos")
                             col_img1, col_img2, col_metricas = st.columns([1.5, 1.5, 1])
 
                             exp_base = next(v for v in visitas if v['fecha'] == fecha_base)
                             exp_actual = next(v for v in visitas if v['fecha'] == fecha_actual)
-                            _, mask_base, img_base = calcular_area_lesion(exp_base['lesion']['ruta_imagen'])
-                            _, mask_actual, img_actual = calcular_area_lesion(exp_actual['lesion']['ruta_imagen'])
+                            _, _, img_base = calcular_area_lesion(exp_base['lesion']['ruta_imagen'])
+                            _, _, img_actual = calcular_area_lesion(exp_actual['lesion']['ruta_imagen'])
 
                             with col_img1:
-                                st.image(img_base, caption=f"Base: {fechas_graf[0]}", use_column_width=True)
+                                st.image(img_base, caption=f"Punto de partida: {fechas_graf[0]}", use_column_width=True)
                             with col_img2:
-                                st.image(img_actual, caption=f"Actual: {fechas_graf[-1]}", use_column_width=True)
+                                st.image(img_actual, caption=f"Punto final: {fechas_graf[-1]}", use_column_width=True)
                             with col_metricas:
                                 st.metric("Variación total", f"{variacion_total:+.2f}%")
                                 if variacion_total > 15.0:
                                     st.error("ALERTA CLÍNICA: Crecimiento acelerado")
                                     st.warning(
-                                        f"La lesión ha incrementado su tamaño en un *{variacion_total:.2f}%*. Según el criterio 'E' (Evolución) de la regla ABCDE, los cambios rápidos en la extensión geométrica son un marcador de alto riesgo de malignidad. Requiere revisión dermatoscópica urgente.")
+                                        f"La lesión ha incrementado su tamaño en un {variacion_total:.2f}%. Según el criterio 'E' (Evolución) de la regla ABCDE, los cambios rápidos en la extensión geométrica son un marcador de alto riesgo de malignidad. Requiere revisión dermatoscópica urgente.")
                                 elif variacion_total < -10.0:
                                     st.success("Reducción detectada")
                                     st.info(
@@ -738,12 +785,13 @@ with tab_evolucion:
                                     st.caption(
                                         "No se detectan cambios morfológicos significativos. La variación se encuentra dentro del margen de error natural del tejido y el escáner.")
 
-                            # Gráfica de tendencia multitemporal
-                            st.markdown("### Tendencia de crecimiento")
-                            df_tendencia = pd.DataFrame({"Fecha": fechas_graf, "Área estructural (píxeles)": areas})
+                            st.markdown("### Tendencia de evolución")
+                            df_tendencia = pd.DataFrame(
+                                {"Secuencia": [f"{i + 1}. {f}" for i, f in enumerate(fechas_graf)],
+                                 "Área estructural (píxeles)": areas})
                             linea_tendencia = alt.Chart(df_tendencia).mark_line(point=True, color='#ef4444').encode(
-                                x=alt.X('Fecha:N', title='Fecha de Consulta'),
+                                x=alt.X('Secuencia:N', title='Orden de selección', sort=None),
                                 y=alt.Y('Área estructural (píxeles):Q', scale=alt.Scale(zero=False)),
-                                tooltip=['Fecha', 'Área estructural (píxeles)']
+                                tooltip=['Secuencia', 'Área estructural (píxeles)']
                             )
                             st.altair_chart(linea_tendencia.properties(height=250), use_container_width=True)
