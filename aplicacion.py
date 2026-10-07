@@ -302,24 +302,28 @@ def calcular_area_lesion(ruta_imagen):
     return area, mascara_final, img_rgb
 
 
-def eliminar_vello_alta_resolucion(imagen_pil):
+def eliminar_vello_avanzado(imagen_pil):
     img_cv = cv2.cvtColor(np.array(imagen_pil), cv2.COLOR_RGB2BGR)
     gris = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
 
-    # 1. Kernel elíptico: Atrapa vellos sin importar su ángulo de inclinación
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (17, 17))
-    blackhat = cv2.morphologyEx(gris, cv2.MORPH_BLACKHAT, kernel)
+    # 1. Aplicar CLAHE solo a la capa en blanco y negro para exagerar el contraste
+    # de los vellos finos contra la piel (esto no afecta la foto final a color).
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    gris_contrastado = clahe.apply(gris)
 
-    # 2. Umbral bajo (10): Asegura que se detecten los vellos más finos o claros
-    _, mascara = cv2.threshold(blackhat, 10, 255, cv2.THRESH_BINARY)
+    # 2. Operación BlackHat sobre la imagen altamente contrastada
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+    blackhat = cv2.morphologyEx(gris_contrastado, cv2.MORPH_BLACKHAT, kernel)
 
-    # 3. LA CLAVE - Dilatación: Engrosa la línea detectada para asegurar que
-    # el inpainting cubra el vello completo y su sombra, no solo el centro.
+    # 3. Umbralización para extraer la máscara. Al haber contrastado antes,
+    # un umbral de 15 atrapará casi todo el vello fino.
+    _, mascara = cv2.threshold(blackhat, 15, 255, cv2.THRESH_BINARY)
+
+    # 4. Dilatación suave para que la máscara cubra los bordes del vello
     kernel_dilatacion = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     mascara = cv2.dilate(mascara, kernel_dilatacion, iterations=1)
 
-    # 4. Inpainting Telea con radio 3: Borra el vello usando la máscara expandida
-    # sin necesidad de aplicar un difuminado agresivo a toda la imagen.
+    # 5. Inpainting: Rellena los huecos usando la imagen original intacta y la nueva máscara precisa
     img_restaurada = cv2.inpaint(img_cv, mascara, 3, cv2.INPAINT_TELEA)
 
     return Image.fromarray(cv2.cvtColor(img_restaurada, cv2.COLOR_BGR2RGB))
