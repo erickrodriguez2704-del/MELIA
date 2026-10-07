@@ -302,19 +302,26 @@ def calcular_area_lesion(ruta_imagen):
     return area, mascara_final, img_rgb
 
 
-def eliminar_vello_suave(imagen_pil):
+def eliminar_vello_alta_resolucion(imagen_pil):
     img_cv = cv2.cvtColor(np.array(imagen_pil), cv2.COLOR_RGB2BGR)
     gris = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
 
-    # 1. Aumentamos el kernel a (15, 15) para atrapar el grosor normal del vello
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
-    bottom_hat = cv2.morphologyEx(gris, cv2.MORPH_BLACKHAT, kernel)
+    # 1. Kernel en CRUZ: Detecta estructuras finas y largas (vellos)
+    # ignorando las estructuras redondas propias del lunar o la red de pigmento.
+    kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (17, 17))
+    blackhat = cv2.morphologyEx(gris, cv2.MORPH_BLACKHAT, kernel)
 
-    # 2. Bajamos el umbral a 10 para detectar vellos que no son totalmente negros
-    _, mascara = cv2.threshold(bottom_hat, 10, 255, cv2.THRESH_BINARY)
+    # 2. Binarización estricta
+    _, mascara = cv2.threshold(blackhat, 15, 255, cv2.THRESH_BINARY)
 
-    # 3. Mantenemos el difuminado (inpaint) en 3 para no destruir la textura
-    img_restaurada = cv2.inpaint(img_cv, mascara, 3, cv2.INPAINT_TELEA)
+    # 3. Micro-dilatación: Engrosa la máscara solo 1 píxel para cubrir el borde del vello
+    # sin "comerse" la piel sana de alrededor.
+    mascara = cv2.dilate(mascara, np.ones((2, 2), np.uint8), iterations=1)
+
+    # 4. Inpainting Navier-Stokes (INPAINT_NS) con radio mínimo de 1.
+    # Reconstruye la imagen continuando matemáticamente las texturas de la piel,
+    # preservando la resolución original sin aplicar desenfoque artificial.
+    img_restaurada = cv2.inpaint(img_cv, mascara, 1, cv2.INPAINT_NS)
 
     return Image.fromarray(cv2.cvtColor(img_restaurada, cv2.COLOR_BGR2RGB))
 
@@ -413,8 +420,8 @@ with tab_analisis:
                 img_procesada = limpiar_captura(img_procesada)
 
             if aplicar_depilacion:
-                img_para_medico = eliminar_vello_suave(img_para_medico)
-                img_procesada = eliminar_vello_suave(img_procesada)
+                img_para_medico = eliminar_vello_alta_resolucion(img_para_medico)
+                img_procesada = eliminar_vello_alta_resolucion(img_procesada)
 
             if filtro_avanzado == "Contraste local (CLAHE)":
                 img_para_medico = aplicar_clahe(img_para_medico)
