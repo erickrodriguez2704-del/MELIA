@@ -689,7 +689,7 @@ with tab_evolucion:
             st.warning("Se requieren al menos 2 estudios del mismo paciente para evaluar crecimiento.")
         else:
             st.markdown(
-                "**1. Galería clínica:** Haga clic en 'Agregar' debajo de las fotos que desea analizar. **El orden en el que haga clic determinará la dirección del análisis** (Primer clic = Foto base, Último clic = Foto actual).")
+                "**1. Galería clínica:** Haga clic en 'Agregar' debajo de las fotos que desea analizar. **El orden en el que haga clic determinará la dirección del análisis**")
 
             # --- GALERÍA VISUAL EN CUADRÍCULA ---
             columnas_galeria = st.columns(3)  # Muestra 3 fotos por fila
