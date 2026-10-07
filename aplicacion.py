@@ -302,31 +302,28 @@ def calcular_area_lesion(ruta_imagen):
     return area, mascara_final, img_rgb
 
 
-def eliminar_vello_multidireccional(imagen_pil):
+def eliminar_vello_avanzado(imagen_pil):
     img_cv = cv2.cvtColor(np.array(imagen_pil), cv2.COLOR_RGB2BGR)
     gris = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
 
-    # 1. Crear kernels en forma de línea para atrapar vellos en distintas direcciones
-    kernel_v = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 17))   # Verticales
-    kernel_h = cv2.getStructuringElement(cv2.MORPH_RECT, (17, 1))   # Horizontales
-    kernel_c = cv2.getStructuringElement(cv2.MORPH_CROSS, (17, 17)) # Diagonales e intersecciones
+    # 1. Aplicar CLAHE solo a la capa en blanco y negro para exagerar el contraste
+    # de los vellos finos contra la piel (esto no afecta la foto final a color).
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    gris_contrastado = clahe.apply(gris)
 
-    # 2. Extraer los vellos en cada dirección por separado
-    bh_v = cv2.morphologyEx(gris, cv2.MORPH_BLACKHAT, kernel_v)
-    bh_h = cv2.morphologyEx(gris, cv2.MORPH_BLACKHAT, kernel_h)
-    bh_c = cv2.morphologyEx(gris, cv2.MORPH_BLACKHAT, kernel_c)
+    # 2. Operación BlackHat sobre la imagen altamente contrastada
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+    blackhat = cv2.morphologyEx(gris_contrastado, cv2.MORPH_BLACKHAT, kernel)
 
-    # 3. Fusionar todas las detecciones (cv2.add suma los píxeles blancos)
-    mascara_global = cv2.add(cv2.add(bh_v, bh_h), bh_c)
+    # 3. Umbralización para extraer la máscara. Al haber contrastado antes,
+    # un umbral de 15 atrapará casi todo el vello fino.
+    _, mascara = cv2.threshold(blackhat, 15, 255, cv2.THRESH_BINARY)
 
-    # 4. Umbral MUY agresivo (bajamos a 5) para atrapar vellos casi invisibles
-    _, mascara = cv2.threshold(mascara_global, 5, 255, cv2.THRESH_BINARY)
-
-    # 5. Dilatación de 3x3 para cubrir la sombra alrededor de cada pelito
-    kernel_dilatacion = np.ones((3, 3), np.uint8)
+    # 4. Dilatación suave para que la máscara cubra los bordes del vello
+    kernel_dilatacion = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     mascara = cv2.dilate(mascara, kernel_dilatacion, iterations=1)
 
-    # 6. Reconstrucción con Inpaint
+    # 5. Inpainting: Rellena los huecos usando la imagen original intacta y la nueva máscara precisa
     img_restaurada = cv2.inpaint(img_cv, mascara, 3, cv2.INPAINT_TELEA)
 
     return Image.fromarray(cv2.cvtColor(img_restaurada, cv2.COLOR_BGR2RGB))
@@ -426,8 +423,8 @@ with tab_analisis:
                 img_procesada = limpiar_captura(img_procesada)
 
             if aplicar_depilacion:
-                img_para_medico = eliminar_vello_multidireccional(img_para_medico)
-                img_procesada = eliminar_vello_multidireccional(img_procesada)
+                img_para_medico = eliminar_vello_avanzado(img_para_medico)
+                img_procesada = eliminar_vello_avanzado(img_procesada)
 
             if filtro_avanzado == "Contraste local (CLAHE)":
                 img_para_medico = aplicar_clahe(img_para_medico)
