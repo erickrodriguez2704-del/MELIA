@@ -306,22 +306,21 @@ def eliminar_vello_alta_resolucion(imagen_pil):
     img_cv = cv2.cvtColor(np.array(imagen_pil), cv2.COLOR_RGB2BGR)
     gris = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
 
-    # 1. Kernel en CRUZ: Detecta estructuras finas y largas (vellos)
-    # ignorando las estructuras redondas propias del lunar o la red de pigmento.
-    kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (17, 17))
+    # 1. Kernel elíptico: Atrapa vellos sin importar su ángulo de inclinación
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (17, 17))
     blackhat = cv2.morphologyEx(gris, cv2.MORPH_BLACKHAT, kernel)
 
-    # 2. Binarización estricta
-    _, mascara = cv2.threshold(blackhat, 15, 255, cv2.THRESH_BINARY)
+    # 2. Umbral bajo (10): Asegura que se detecten los vellos más finos o claros
+    _, mascara = cv2.threshold(blackhat, 10, 255, cv2.THRESH_BINARY)
 
-    # 3. Micro-dilatación: Engrosa la máscara solo 1 píxel para cubrir el borde del vello
-    # sin "comerse" la piel sana de alrededor.
-    mascara = cv2.dilate(mascara, np.ones((2, 2), np.uint8), iterations=1)
+    # 3. LA CLAVE - Dilatación: Engrosa la línea detectada para asegurar que
+    # el inpainting cubra el vello completo y su sombra, no solo el centro.
+    kernel_dilatacion = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    mascara = cv2.dilate(mascara, kernel_dilatacion, iterations=1)
 
-    # 4. Inpainting Navier-Stokes (INPAINT_NS) con radio mínimo de 1.
-    # Reconstruye la imagen continuando matemáticamente las texturas de la piel,
-    # preservando la resolución original sin aplicar desenfoque artificial.
-    img_restaurada = cv2.inpaint(img_cv, mascara, 1, cv2.INPAINT_NS)
+    # 4. Inpainting Telea con radio 3: Borra el vello usando la máscara expandida
+    # sin necesidad de aplicar un difuminado agresivo a toda la imagen.
+    img_restaurada = cv2.inpaint(img_cv, mascara, 3, cv2.INPAINT_TELEA)
 
     return Image.fromarray(cv2.cvtColor(img_restaurada, cv2.COLOR_BGR2RGB))
 
