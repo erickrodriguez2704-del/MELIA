@@ -431,8 +431,9 @@ with tab_analisis:
 
             # Mostrar las imágenes dinámicamente antes de enviar a la IA
             c1, c2 = st.columns(2)
-            c1.image(imagen_cargada, caption="Fotografía Original", use_container_width=True)
-            c2.image(img_para_medico, caption="Vista Clínica Filtrada", use_container_width=True)
+            # Envolvemos las variables en np.array() para asegurar la compatibilidad web
+            c1.image(np.array(imagen_cargada), caption="Fotografía Original", use_container_width=True)
+            c2.image(np.array(img_para_medico), caption="Vista Clínica Filtrada", use_container_width=True)
 
             st.markdown("---")
 
